@@ -74,9 +74,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (data: RegisterRequest) => {
     const res = await apiRegister(data);
-    setToken(res.session.access_token);
-    storeUser(res.user);
-    setState({ user: res.user, isAuthenticated: true, loading: false });
+    if (res.session) {
+      setToken(res.session.access_token);
+      storeUser(res.user);
+      setState({ user: res.user, isAuthenticated: true, loading: false });
+    }
   }, []);
 
   const logoutFn = useCallback(async () => {
