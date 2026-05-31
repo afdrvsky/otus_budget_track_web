@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AddTransactionForm from '../components/AddTransactionForm';
 
-// Мокаем API
 jest.mock('../api/api', () => ({
   fetchCategories: jest.fn().mockResolvedValue([
     {
@@ -49,6 +49,13 @@ jest.mock('../api/api', () => ({
   ]),
 }));
 
+function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
+
 describe('AddTransactionForm', () => {
   const mockOnSubmit = jest.fn();
 
@@ -60,7 +67,7 @@ describe('AddTransactionForm', () => {
   it('отправляет форму с корректными данными расхода', async () => {
     mockOnSubmit.mockResolvedValue(undefined);
 
-    render(<AddTransactionForm onSubmit={mockOnSubmit} />);
+    renderWithProviders(<AddTransactionForm onSubmit={mockOnSubmit} />);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/сумма/i)).toBeInTheDocument();
@@ -83,7 +90,7 @@ describe('AddTransactionForm', () => {
   });
 
   it('показывает ошибку при пустой сумме', async () => {
-    render(<AddTransactionForm onSubmit={mockOnSubmit} />);
+    renderWithProviders(<AddTransactionForm onSubmit={mockOnSubmit} />);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/комментарий/i)).toBeInTheDocument();
@@ -101,7 +108,7 @@ describe('AddTransactionForm', () => {
   it('переключается на тип дохода и отправляет', async () => {
     mockOnSubmit.mockResolvedValue(undefined);
 
-    render(<AddTransactionForm onSubmit={mockOnSubmit} />);
+    renderWithProviders(<AddTransactionForm onSubmit={mockOnSubmit} />);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /доход/i })).toBeInTheDocument();

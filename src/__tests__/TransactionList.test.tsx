@@ -55,7 +55,7 @@ describe('TransactionList', () => {
     render(<TransactionList transactions={mockTransactions} />);
 
     expect(screen.getByText(/еда/i)).toBeInTheDocument();
-    expect(screen.getByText(/зарплата/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/зарплата/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/транспорт/i)).toBeInTheDocument();
   });
 

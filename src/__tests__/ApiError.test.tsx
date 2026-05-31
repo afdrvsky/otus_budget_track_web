@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Dashboard from '../pages/Dashboard';
 
 jest.mock('../api/api', () => ({
@@ -27,13 +28,20 @@ jest.mock('../auth/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>{ui}</BrowserRouter>
+    </QueryClientProvider>
+  );
+}
+
 describe('Dashboard — обработка ошибок', () => {
   it('показывает сообщение об ошибке при неудачной загрузке', async () => {
-    render(
-      <BrowserRouter>
-        <Dashboard />
-      </BrowserRouter>
-    );
+    renderWithProviders(<Dashboard />);
 
     expect(screen.getByText(/загрузка/i)).toBeInTheDocument();
 
