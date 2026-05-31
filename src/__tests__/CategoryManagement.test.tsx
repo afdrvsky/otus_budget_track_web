@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CategoriesPage from '../pages/CategoriesPage';
 
-// Мокаем API
 jest.mock('../api/api', () => ({
   fetchCategories: jest.fn().mockResolvedValue([
     {
@@ -42,13 +42,20 @@ jest.mock('../api/api', () => ({
   deleteCategory: jest.fn(),
 }));
 
+function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>{ui}</BrowserRouter>
+    </QueryClientProvider>
+  );
+}
+
 describe('CategoriesPage — добавление категории', () => {
   it('показывает новую категорию после загрузки', async () => {
-    render(
-      <BrowserRouter>
-        <CategoriesPage />
-      </BrowserRouter>
-    );
+    renderWithProviders(<CategoriesPage />);
 
     await waitFor(() => {
       expect(screen.getByText('Категории')).toBeInTheDocument();
@@ -60,11 +67,7 @@ describe('CategoriesPage — добавление категории', () => {
 
 describe('CategoriesPage — удаление категории', () => {
   it('показывает кнопку удаления для категории', async () => {
-    render(
-      <BrowserRouter>
-        <CategoriesPage />
-      </BrowserRouter>
-    );
+    renderWithProviders(<CategoriesPage />);
 
     await waitFor(() => {
       expect(screen.getByText('Категории')).toBeInTheDocument();
