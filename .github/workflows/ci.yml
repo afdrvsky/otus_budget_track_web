@@ -119,6 +119,20 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Prepare Vercel output
+        run: |
+          mkdir -p .vercel/output/static
+          cp -r dist/* .vercel/output/static/
+          cat > .vercel/output/config.json << 'EOF'
+          {
+            "version": 3,
+            "routes": [
+              { "handle": "filesystem" },
+              { "src": "/.*", "dest": "/index.html" }
+            ]
+          }
+          EOF
+
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
