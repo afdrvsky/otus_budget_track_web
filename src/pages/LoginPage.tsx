@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { sanitizeApiError } from '../utils/helpers';
+import AuthButton from '../components/AuthButton';
 
 type AuthBanner = { type: 'success'; text: string } | { type: 'error'; text: string } | null;
 
@@ -121,6 +122,13 @@ export default function LoginPage() {
             Забыли пароль?
           </Link>
         </p>
+      </div>
+
+      <div className="mt-4 bg-white rounded-xl p-6 shadow-sm border border-gray-50">
+        <p className="text-sm text-gray-500 text-center mb-4">или</p>
+        <div className="flex justify-center">
+          <AuthButton />
+        </div>
       </div>
     </div>
   );
