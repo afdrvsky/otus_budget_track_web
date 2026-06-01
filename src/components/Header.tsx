@@ -6,6 +6,7 @@ const navItems = [
   { to: '/add', label: 'Добавить' },
   { to: '/stats', label: 'Статистика' },
   { to: '/categories', label: 'Категории' },
+  { to: '/profile', label: 'Профиль' },
 ];
 
 export default function Header() {

@@ -2,6 +2,7 @@ import client from './client';
 import type {
   AuthResponse,
   Category,
+  CurrentUser,
   LoginRequest,
   RegisterRequest,
   Transaction,
@@ -27,6 +28,17 @@ export async function logout(): Promise<void> {
 
 export async function recoverPassword(email: string): Promise<void> {
   await client.post('/auth/recover', { email });
+}
+
+export async function fetchCurrentUser(): Promise<CurrentUser> {
+  const res = await client.get<CurrentUser>('/user');
+  return res.data;
+}
+
+export function getGoogleLoginUrl(): string {
+  const base =
+    import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8080/api' : '');
+  return `${base}/auth/google`;
 }
 
 // --- Transactions ---

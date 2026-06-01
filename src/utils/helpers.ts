@@ -1,5 +1,28 @@
 import type { Category, Transaction, TransactionType } from './types';
 
+const KNOWN_API_ERRORS: Record<string, string> = {
+  INVALID_CREDENTIALS: 'Неверный email или пароль',
+  USER_EXISTS: 'Пользователь с таким email уже существует',
+  INVALID_EMAIL: 'Указан некорректный email',
+  WEAK_PASSWORD: 'Пароль слишком простой',
+  CATEGORY_IN_USE: 'Невозможно удалить категорию — она используется в транзакциях',
+  NOT_FOUND: 'Ресурс не найден',
+  RATE_LIMITED: 'Слишком много запросов. Попробуйте позже',
+  SESSION_EXPIRED: 'Сессия истекла. Войдите заново',
+  FORBIDDEN: 'Доступ запрещён',
+};
+
+export function sanitizeApiError(err: unknown): string {
+  if (err instanceof Error && err.message === 'Network error') {
+    return 'Не удалось подключиться к серверу';
+  }
+  const code = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+  if (code && KNOWN_API_ERRORS[code]) {
+    return KNOWN_API_ERRORS[code];
+  }
+  return 'Произошла ошибка. Попробуйте позже';
+}
+
 export const colorPalette = [
   '#f97316',
   '#3b82f6',

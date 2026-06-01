@@ -50,6 +50,15 @@ export interface AuthUser {
   user_metadata?: { full_name?: string };
 }
 
+export interface GoogleUser {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url?: string;
+}
+
+export type CurrentUser = AuthUser & { name?: string; avatar_url?: string };
+
 export interface AuthSession {
   access_token: string;
   refresh_token: string;

@@ -1,83 +1,131 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import type { AuthUser, LoginRequest, RegisterRequest } from '../utils/types';
-import { login as apiLogin, register as apiRegister, logout as apiLogout } from '../api/api';
-import { getToken, setToken, removeToken } from '../api/client';
-
-const USER_KEY = 'budget_track_user';
+import type { AuthUser, CurrentUser, LoginRequest, RegisterRequest } from '../utils/types';
+import {
+  login as apiLogin,
+  register as apiRegister,
+  logout as apiLogout,
+  fetchCurrentUser,
+  getGoogleLoginUrl,
+} from '../api/api';
+import { getStoredSession, setStoredSession, clearSession, getStoredUserKey } from '../api/client';
 
 interface AuthState {
-  user: AuthUser | null;
+  user: CurrentUser | null;
   isAuthenticated: boolean;
   loading: boolean;
 }
 
 interface AuthContextValue extends AuthState {
   login: (data: LoginRequest) => Promise<void>;
+  loginWithGoogle: () => void;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function getStoredUser(): AuthUser | null {
   try {
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = localStorage.getItem(getStoredUserKey());
     return raw ? (JSON.parse(raw) as AuthUser) : null;
   } catch {
     return null;
   }
 }
 
-function storeUser(user: AuthUser | null) {
+function storeUser(user: CurrentUser | AuthUser | null) {
+  const key = getStoredUserKey();
   if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem(key, JSON.stringify(user));
   } else {
-    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(key);
   }
+}
+
+function isSessionExpired(): boolean {
+  const session = getStoredSession();
+  if (!session) return true;
+  if (session.expires_at && Date.now() / 1000 > session.expires_at) return true;
+  return false;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(() => {
-    const hasToken = !!getToken();
-    const user = hasToken ? getStoredUser() : null;
-    return { user, isAuthenticated: hasToken && !!user, loading: false };
+    const session = getStoredSession();
+    const expired = !session || isSessionExpired();
+    if (expired) {
+      clearSession();
+      storeUser(null);
+      return { user: null, isAuthenticated: false, loading: false };
+    }
+    const user = getStoredUser();
+    return { user, isAuthenticated: !!user, loading: true };
   });
 
-  // Validate stored token on mount by calling a protected endpoint
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
+    if (!state.isAuthenticated) return;
 
-    // Light validation: try fetching categories. If 401, token is stale.
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/categories`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => {
-        if (res.status === 401) {
-          removeToken();
+    const session = getStoredSession();
+    if (!session?.access_token) {
+      setState(prev => ({ ...prev, loading: false }));
+      return;
+    }
+
+    fetchCurrentUser()
+      .then(user => {
+        storeUser(user);
+        setState({ user, isAuthenticated: true, loading: false });
+      })
+      .catch(err => {
+        if (err?.response?.status === 401) {
+          clearSession();
           storeUser(null);
           setState({ user: null, isAuthenticated: false, loading: false });
+        } else {
+          setState(prev => ({ ...prev, loading: false }));
         }
-      })
-      .catch(() => {
-        // Network error — keep session, don't force logout
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    function handleUnauthorized() {
+      clearSession();
+      storeUser(null);
+      setState({ user: null, isAuthenticated: false, loading: false });
+      window.location.href = '/login';
+    }
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, []);
 
   const login = useCallback(async (data: LoginRequest) => {
     const res = await apiLogin(data);
-    setToken(res.session.access_token);
-    storeUser(res.user);
-    setState({ user: res.user, isAuthenticated: true, loading: false });
+    setStoredSession({
+      access_token: res.session.access_token,
+      expires_at: res.session.expires_at,
+    });
+    const user = await fetchCurrentUser();
+    storeUser(user);
+    setState({ user, isAuthenticated: true, loading: false });
+  }, []);
+
+  const loginWithGoogle = useCallback(() => {
+    window.location.href = getGoogleLoginUrl();
   }, []);
 
   const register = useCallback(async (data: RegisterRequest) => {
     const res = await apiRegister(data);
     if (res.session) {
-      setToken(res.session.access_token);
-      storeUser(res.user);
-      setState({ user: res.user, isAuthenticated: true, loading: false });
+      setStoredSession({
+        access_token: res.session.access_token,
+        expires_at: res.session.expires_at,
+      });
+      const user = await fetchCurrentUser();
+      storeUser(user);
+      setState({ user, isAuthenticated: true, loading: false });
     }
   }, []);
 
@@ -85,14 +133,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await apiLogout();
     } finally {
-      removeToken();
+      clearSession();
       storeUser(null);
       setState({ user: null, isAuthenticated: false, loading: false });
     }
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const user = await fetchCurrentUser();
+    storeUser(user);
+    setState(prev => ({ ...prev, user }));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout: logoutFn }}>
+    <AuthContext.Provider
+      value={{ ...state, login, loginWithGoogle, register, logout: logoutFn, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

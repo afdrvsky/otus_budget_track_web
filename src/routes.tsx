@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import AddTransaction from './pages/AddTransaction';
 import StatisticsPage from './pages/StatisticsPage';
 import CategoriesPage from './pages/CategoriesPage';
+import ProfilePage from './pages/ProfilePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import RecoverPasswordPage from './pages/RecoverPasswordPage';
@@ -13,17 +14,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="text-center py-12">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
+          <p className="text-gray-400 mt-3 text-sm">Проверка авторизации...</p>
+        </div>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    const hash = window.location.hash;
-    if (hash && hash.includes('error')) {
-      return <LoginPage />;
-    }
     return <Navigate to="/login" replace />;
   }
 
@@ -65,6 +65,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <CategoriesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
           </ProtectedRoute>
         }
       />
