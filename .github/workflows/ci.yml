@@ -119,12 +119,6 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Prepare Vercel output
-        run: |
-          mkdir -p .vercel/output/static
-          cp -r dist/* .vercel/output/static/
-          printf '%s\n' '{' '  "version": 3,' '  "routes": [' '    { "handle": "filesystem" },' '    { "src": "/.*", "dest": "/index.html" }' '  ]' '}' > .vercel/output/config.json
-
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
@@ -134,7 +128,14 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Deploy to Vercel
+      - name: Prepare prebuilt output
+        run: |
+          rm -rf .vercel/output
+          mkdir -p .vercel/output/static
+          cp -r dist/. .vercel/output/static/
+          echo '{"version":3,"routes":[{"handle":"filesystem"},{"src":"/.*","dest":"/index.html"}]}' > .vercel/output/config.json
+
+      - name: Deploy
         id: deploy
         run: |
           url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
