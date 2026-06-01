@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Category, TransactionType } from '../utils/types';
 import { useCategories, useAddCategory, useUpdateCategory, useDeleteCategory } from '../api/hooks';
+import { sanitizeApiError } from '../utils/helpers';
 import CategoryCard from '../components/CategoryCard';
 import CategoryForm from '../components/CategoryForm';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -45,10 +46,9 @@ export default function CategoriesPage() {
       setShowForm(false);
       setEditingCategory(null);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Ошибка при сохранении';
-      setError(msg);
+      setError(sanitizeApiError(err));
+      setShowForm(false);
+      setEditingCategory(null);
     }
   }
 
@@ -65,10 +65,7 @@ export default function CategoriesPage() {
       setConfirmDeleteOpen(false);
       setDeleteTarget(null);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Ошибка при удалении';
-      setError(msg);
+      setError(sanitizeApiError(err));
       setConfirmDeleteOpen(false);
       setDeleteTarget(null);
     }

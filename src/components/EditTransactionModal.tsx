@@ -33,6 +33,11 @@ export default function EditTransactionModal({ transaction, onClose }: EditTrans
       setError('Выберите дату');
       return;
     }
+    const trimmedComment = comment.trim();
+    if (trimmedComment.length > 500) {
+      setError('Комментарий не должен превышать 500 символов');
+      return;
+    }
 
     try {
       await updateMut.mutateAsync({
@@ -41,7 +46,7 @@ export default function EditTransactionModal({ transaction, onClose }: EditTrans
           type,
           amount,
           category_id: categoryId,
-          comment: comment.trim(),
+          comment: trimmedComment,
           transaction_date: date,
         },
       });

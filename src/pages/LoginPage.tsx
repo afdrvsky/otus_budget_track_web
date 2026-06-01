@@ -1,34 +1,32 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-
-function parseHashParams(): Record<string, string> {
-  const hash = window.location.hash.substring(1);
-  if (!hash) return {};
-  return Object.fromEntries(new URLSearchParams(hash).entries());
-}
+import { sanitizeApiError } from '../utils/helpers';
 
 type AuthBanner = { type: 'success'; text: string } | { type: 'error'; text: string } | null;
 
+const KNOWN_HASH_ERRORS: Record<string, string> = {
+  otp_expired: 'Ссылка для подтверждения устарела. Зарегистрируйтесь заново.',
+  access_denied: 'Доступ запрещён.',
+  server_error: 'Ошибка сервера. Попробуйте позже.',
+};
+
 function getAuthBanner(): AuthBanner {
-  const hash = parseHashParams();
-  if (hash.error_code === 'otp_expired') {
-    return {
-      type: 'error',
-      text: 'Ссылка для подтверждения устарела. Зарегистрируйтесь заново.',
-    };
+  const hash = window.location.hash.substring(1);
+  if (!hash) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('confirmed') === 'true') {
+      return { type: 'success', text: 'Email успешно подтверждён! Теперь вы можете войти.' };
+    }
+    return null;
   }
-  if (hash.error) {
-    return {
-      type: 'error',
-      text: hash.error_description
-        ? decodeURIComponent(hash.error_description).replace(/\+/g, ' ')
-        : 'Произошла ошибка при подтверждении.',
-    };
+  const entries = Object.fromEntries(new URLSearchParams(hash).entries());
+  const code = entries.error_code || entries.error;
+  if (code && KNOWN_HASH_ERRORS[code]) {
+    return { type: 'error', text: KNOWN_HASH_ERRORS[code] };
   }
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('confirmed') === 'true') {
-    return { type: 'success', text: 'Email успешно подтверждён! Теперь вы можете войти.' };
+  if (code) {
+    return { type: 'error', text: 'Произошла ошибка при подтверждении.' };
   }
   return null;
 }
@@ -52,10 +50,7 @@ export default function LoginPage() {
       await login({ email, password });
       navigate('/');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Неверный email или пароль';
-      setError(msg);
+      setError(sanitizeApiError(err));
     } finally {
       setLoading(false);
     }

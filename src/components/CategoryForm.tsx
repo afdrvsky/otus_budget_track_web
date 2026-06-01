@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Category, TransactionType } from '../utils/types';
-import { colorPalette } from '../utils/helpers';
+import { colorPalette, sanitizeApiError } from '../utils/helpers';
 
 interface CategoryFormProps {
   initialData?: Category;
@@ -34,10 +34,7 @@ export default function CategoryForm({ initialData, type, onSubmit, onCancel }: 
     try {
       await onSubmit({ name: trimmed, color });
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Ошибка при сохранении';
-      setError(msg);
+      setError(sanitizeApiError(err));
     } finally {
       setIsSubmitting(false);
     }

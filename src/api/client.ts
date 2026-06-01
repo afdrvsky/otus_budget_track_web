@@ -1,16 +1,40 @@
 import axios from 'axios';
 
 const TOKEN_KEY = 'budget_track_token';
+const USER_KEY = 'budget_track_session';
+
+function getApiUrl(): string {
+  const url = import.meta.env.VITE_API_URL;
+  if (!url && import.meta.env.DEV) {
+    return 'http://localhost:8080/api';
+  }
+  if (!url) {
+    throw new Error('VITE_API_URL is not configured');
+  }
+  return url;
+}
+
+export interface StoredSession {
+  access_token: string;
+  expires_at?: number;
+}
 
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: getApiUrl(),
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+  },
 });
 
 client.interceptors.request.use(config => {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const session = getStoredSession();
+  if (session?.access_token) {
+    if (session.expires_at && Date.now() / 1000 > session.expires_at) {
+      clearSession();
+      return config;
+    }
+    config.headers.Authorization = `Bearer ${session.access_token}`;
   }
   return config;
 });
@@ -25,24 +49,34 @@ client.interceptors.response.use(
         url.includes('/auth/register') ||
         url.includes('/auth/recover');
       if (!isAuthEndpoint) {
-        localStorage.removeItem(TOKEN_KEY);
-        window.location.href = '/login';
+        clearSession();
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
       }
     }
     return Promise.reject(error);
   }
 );
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+export function getStoredSession(): StoredSession | null {
+  try {
+    const raw = localStorage.getItem(TOKEN_KEY);
+    return raw ? (JSON.parse(raw) as StoredSession) : null;
+  } catch {
+    return null;
+  }
 }
 
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+export function setStoredSession(session: StoredSession): void {
+  localStorage.setItem(TOKEN_KEY, JSON.stringify(session));
 }
 
-export function removeToken(): void {
+export function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+export function getStoredUserKey(): string {
+  return USER_KEY;
 }
 
 export default client;

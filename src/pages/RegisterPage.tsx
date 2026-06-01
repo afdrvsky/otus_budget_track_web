@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { sanitizeApiError } from '../utils/helpers';
+
+const PASSWORD_MIN_LENGTH = 8;
+
+function validatePassword(p: string): string | null {
+  if (p.length < PASSWORD_MIN_LENGTH)
+    return `Пароль должен быть не менее ${PASSWORD_MIN_LENGTH} символов`;
+  if (!/[A-ZА-Я]/.test(p)) return 'Пароль должен содержать хотя бы одну заглавную букву';
+  if (!/[0-9]/.test(p)) return 'Пароль должен содержать хотя бы одну цифру';
+  return null;
+}
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -14,8 +25,9 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < 6) {
-      setError('Пароль должен быть не менее 6 символов');
+    const pwError = validatePassword(password);
+    if (pwError) {
+      setError(pwError);
       return;
     }
     setLoading(true);
@@ -23,10 +35,7 @@ export default function RegisterPage() {
       await register({ email, password, full_name: fullName || undefined });
       setRegistered(true);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Ошибка регистрации';
-      setError(msg);
+      setError(sanitizeApiError(err));
     } finally {
       setLoading(false);
     }
@@ -98,6 +107,8 @@ export default function RegisterPage() {
               id="password"
               type="password"
               required
+              minLength={PASSWORD_MIN_LENGTH}
+              autoComplete="new-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"

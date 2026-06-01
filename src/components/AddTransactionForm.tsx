@@ -41,6 +41,11 @@ export default function AddTransactionForm({ onSubmit }: AddTransactionFormProps
       setError('Выберите дату');
       return;
     }
+    const trimmedComment = comment.trim();
+    if (trimmedComment.length > 500) {
+      setError('Комментарий не должен превышать 500 символов');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -48,7 +53,7 @@ export default function AddTransactionForm({ onSubmit }: AddTransactionFormProps
         type,
         amount,
         category_id: effectiveCategoryId,
-        comment: comment.trim(),
+        comment: trimmedComment,
         transaction_date: date,
       });
       setAmount('');
