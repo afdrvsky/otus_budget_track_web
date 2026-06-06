@@ -8,6 +8,7 @@ import ProfilePage from './pages/ProfilePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import RecoverPasswordPage from './pages/RecoverPasswordPage';
+import AuthCallback from './pages/AuthCallback';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -36,6 +37,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/recover" element={<RecoverPasswordPage />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route
         path="/"
         element={
