@@ -22,6 +22,7 @@ interface AuthContextValue extends AuthState {
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  handleOAuthCallback: (accessToken: string, expiresIn?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -145,9 +146,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, user }));
   }, []);
 
+  const handleOAuthCallback = useCallback(async (accessToken: string, expiresIn?: string) => {
+    const expiresAt = expiresIn
+      ? Math.floor(Date.now() / 1000) + parseInt(expiresIn, 10)
+      : undefined;
+
+    setStoredSession({ access_token: accessToken, expires_at: expiresAt });
+    const user = await fetchCurrentUser();
+    storeUser(user);
+    setState({ user, isAuthenticated: true, loading: false });
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ ...state, login, loginWithGoogle, register, logout: logoutFn, refreshUser }}
+      value={{ ...state, login, loginWithGoogle, register, logout: logoutFn, refreshUser, handleOAuthCallback }}
     >
       {children}
     </AuthContext.Provider>

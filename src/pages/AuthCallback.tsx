@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { setStoredSession } from '../api/client';
-import { fetchCurrentUser } from '../api/api';
+import { useAuth } from '../auth/AuthContext';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const { handleOAuthCallback } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,16 +23,7 @@ export default function AuthCallback() {
           throw new Error(errorCode);
         }
 
-        const expiresAt = expiresIn
-          ? Math.floor(Date.now() / 1000) + parseInt(expiresIn, 10)
-          : undefined;
-
-        setStoredSession({
-          access_token: accessToken,
-          expires_at: expiresAt,
-        });
-
-        await fetchCurrentUser();
+        await handleOAuthCallback(accessToken, expiresIn ?? undefined);
 
         navigate('/', { replace: true });
       } catch (err: unknown) {
@@ -43,7 +34,7 @@ export default function AuthCallback() {
     }
 
     handleCallback();
-  }, [navigate]);
+  }, [navigate, handleOAuthCallback]);
 
   if (error) {
     return (
