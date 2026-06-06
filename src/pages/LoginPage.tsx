@@ -125,7 +125,6 @@ export default function LoginPage() {
       </div>
 
       <div className="mt-4 bg-white rounded-xl p-6 shadow-sm border border-gray-50">
-        <p className="text-sm text-gray-500 text-center mb-4">или</p>
         <div className="flex justify-center">
           <AuthButton />
         </div>
