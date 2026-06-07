@@ -18,8 +18,7 @@ export default function AuthCallback() {
 
         if (!accessToken) {
           const search = new URLSearchParams(window.location.search);
-          const errorCode =
-            search.get('error_description') || search.get('error') || 'no_token';
+          const errorCode = search.get('error_description') || search.get('error') || 'no_token';
           throw new Error(errorCode);
         }
 
