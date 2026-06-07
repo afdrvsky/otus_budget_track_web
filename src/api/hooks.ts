@@ -10,6 +10,7 @@ import {
   updateCategory,
   deleteCategory,
 } from '../api/api';
+import { GAEvents } from '../analytics/gtag';
 
 export const transactionKeys = {
   all: ['transactions'] as const,
@@ -39,7 +40,8 @@ export function useCreateTransaction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: TransactionFormData) => createTransaction(data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      GAEvents.transactionCreated(variables.type, Number(variables.amount), variables.category_id);
       qc.invalidateQueries({ queryKey: transactionKeys.all });
     },
   });
@@ -50,7 +52,8 @@ export function useUpdateTransaction() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<TransactionFormData> }) =>
       updateTransaction(id, data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      GAEvents.transactionUpdated(variables.data.type ?? 'expense');
       qc.invalidateQueries({ queryKey: transactionKeys.all });
     },
   });
@@ -61,6 +64,7 @@ export function useDeleteTransaction() {
   return useMutation({
     mutationFn: (id: string) => deleteTransaction(id),
     onSuccess: () => {
+      GAEvents.transactionDeleted();
       qc.invalidateQueries({ queryKey: transactionKeys.all });
     },
   });
@@ -78,7 +82,8 @@ export function useAddCategory() {
   return useMutation({
     mutationFn: ({ name, type, color }: { name: string; type: TransactionType; color: string }) =>
       addCategory(name, type, color),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      GAEvents.categoryCreated(variables.type);
       qc.invalidateQueries({ queryKey: categoryKeys.all });
     },
   });
@@ -90,6 +95,7 @@ export function useUpdateCategory() {
     mutationFn: ({ id, updates }: { id: string; updates: { name?: string; color?: string } }) =>
       updateCategory(id, updates),
     onSuccess: () => {
+      GAEvents.categoryUpdated();
       qc.invalidateQueries({ queryKey: categoryKeys.all });
     },
   });
@@ -100,6 +106,7 @@ export function useDeleteCategory() {
   return useMutation({
     mutationFn: (id: string) => deleteCategory(id),
     onSuccess: () => {
+      GAEvents.categoryDeleted();
       qc.invalidateQueries({ queryKey: categoryKeys.all });
     },
   });

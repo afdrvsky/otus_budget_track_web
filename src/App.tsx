@@ -1,8 +1,20 @@
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './auth/AuthContext';
 import Header from './components/Header';
 import AppRoutes from './routes';
+import { gaPageView } from './analytics/gtag';
+
+function AnalyticsListener() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    gaPageView(pathname);
+  }, [pathname]);
+
+  return null;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,6 +29,7 @@ const queryClient = new QueryClient({
 export default function App() {
   return (
     <BrowserRouter>
+      <AnalyticsListener />
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <div className="min-h-screen bg-gray-50">

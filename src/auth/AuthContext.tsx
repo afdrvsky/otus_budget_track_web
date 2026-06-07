@@ -9,6 +9,7 @@ import {
   getGoogleLoginUrl,
 } from '../api/api';
 import { getStoredSession, setStoredSession, clearSession, getStoredUserKey } from '../api/client';
+import { GAEvents } from '../analytics/gtag';
 
 interface AuthState {
   user: CurrentUser | null;
@@ -111,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const user = await fetchCurrentUser();
     storeUser(user);
     setState({ user, isAuthenticated: true, loading: false });
+    GAEvents.login('email');
   }, []);
 
   const loginWithGoogle = useCallback(() => {
@@ -127,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const user = await fetchCurrentUser();
       storeUser(user);
       setState({ user, isAuthenticated: true, loading: false });
+      GAEvents.register('email');
     }
   }, []);
 
@@ -134,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await apiLogout();
     } finally {
+      GAEvents.logout();
       clearSession();
       storeUser(null);
       setState({ user: null, isAuthenticated: false, loading: false });
@@ -155,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const user = await fetchCurrentUser();
     storeUser(user);
     setState({ user, isAuthenticated: true, loading: false });
+    GAEvents.login('google');
   }, []);
 
   return (
