@@ -5,7 +5,9 @@ declare global {
   }
 }
 
-const GA_ID: string = import.meta.env.VITE_GA_MEASUREMENT_ID ?? '';
+const GA_PREFIX: string = import.meta.env.VITE_GA_PREFIX ?? '';
+const GA_SUFFIX: string = import.meta.env.VITE_GA_SUFFIX ?? '';
+const GA_ID = `${GA_PREFIX}${GA_SUFFIX}`;
 
 function isActive(): boolean {
   return GA_ID.length > 0 && !GA_ID.startsWith('G-XXX');
