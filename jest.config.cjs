@@ -13,5 +13,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   moduleNameMapper: {
     '\\.(css|less|scss)$': '<rootDir>/src/__mocks__/styleMock.js',
+    '^../analytics/gtag$': '<rootDir>/src/__mocks__/gtag.ts',
+    '^../../analytics/gtag$': '<rootDir>/src/__mocks__/gtag.ts',
   },
 }
