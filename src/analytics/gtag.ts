@@ -15,20 +15,18 @@ function isActive(): boolean {
 function initGA() {
   if (!isActive() || typeof window === 'undefined') return;
 
-  if (!window.dataLayer) window.dataLayer = [];
-  if (!window.gtag) {
-    window.gtag = function (...args: unknown[]) {
-      window.dataLayer.push(args);
-    };
-  }
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function (...args: unknown[]) {
+    window.dataLayer.push(args);
+  };
+
+  window.gtag('js', new Date());
+  window.gtag('config', GA_ID, { send_page_view: false });
 
   const script = document.createElement('script');
   script.async = true;
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
   document.head.appendChild(script);
-
-  window.gtag('js', new Date());
-  window.gtag('config', GA_ID, { send_page_view: false });
 }
 
 initGA();
