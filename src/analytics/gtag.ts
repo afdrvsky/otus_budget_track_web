@@ -13,7 +13,12 @@ function isActive(): boolean {
 }
 
 function initGA() {
-  if (!isActive() || typeof window === 'undefined') return;
+  if (!isActive() || typeof window === 'undefined') {
+    console.log('[GA] disabled, GA_ID =', GA_ID);
+    return;
+  }
+
+  console.log('[GA] initializing, GA_ID =', GA_ID);
 
   window.dataLayer = window.dataLayer || [];
   window.gtag = function (...args: unknown[]) {
@@ -26,6 +31,8 @@ function initGA() {
   const script = document.createElement('script');
   script.async = true;
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
+  script.onload = () => console.log('[GA] gtag script loaded');
+  script.onerror = () => console.log('[GA] gtag script FAILED to load');
   document.head.appendChild(script);
 }
 
@@ -36,6 +43,7 @@ function isEnabled(): boolean {
 }
 
 export function gaPageView(path: string) {
+  console.log('[GA] gaPageView called, path =', path, 'enabled =', isEnabled());
   if (!isEnabled()) return;
   window.gtag('event', 'page_view', {
     page_path: path,
