@@ -104,10 +104,12 @@ export function useUpdateCategory() {
 export function useDeleteCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => deleteCategory(id),
+    mutationFn: ({ id, reassignTo }: { id: string; reassignTo?: string }) =>
+      deleteCategory(id, reassignTo),
     onSuccess: () => {
       GAEvents.categoryDeleted();
       qc.invalidateQueries({ queryKey: categoryKeys.all });
+      qc.invalidateQueries({ queryKey: transactionKeys.all });
     },
   });
 }

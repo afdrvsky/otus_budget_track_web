@@ -108,6 +108,7 @@ export async function updateCategory(
   return res.data;
 }
 
-export async function deleteCategory(id: string): Promise<void> {
-  await client.delete(`/categories/${id}`);
+export async function deleteCategory(id: string, reassignTo?: string): Promise<void> {
+  const params = reassignTo ? { reassign_to: reassignTo } : undefined;
+  await client.delete(`/categories/${id}`, { params });
 }

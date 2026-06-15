@@ -2,160 +2,247 @@
 
 ## Описание процесса
 
-Проект создан с нуля по спецификации из `.ai/CLAUDE.md`. Разработка велась последовательно: от конфигурации до компонентов, страниц и тестов. Вторым этапом добавлена функция управления категориями (CRUD).
+Проект — frontend-часть full-stack приложения для учёта личных финансов. Разработка велась от прототипа на localStorage к production-версии с реальным backend API, аутентификацией, аналитикой и CI/CD.
+
+**Backend:** https://github.com/afdrvsky/otus_budget_track_backend  
+**Production:** https://otus-budget-track-web.vercel.app
+
+---
 
 ## Этапы разработки
 
 ### 1. Конфигурация проекта
-Созданы все конфигурационные файлы:
-- `package.json` с зависимостями React 18, Vite, Tailwind CSS, React Router v6, Jest
-- `vite.config.ts` — настройка dev-сервера на порт 3000
-- `tailwind.config.ts` — кастомная палитра цветов (primary, expense, income)
-- `tsconfig.json` + `tsconfig.node.json` — строгий TypeScript
+
+- `package.json` — React 18, Vite, Tailwind CSS, React Router v6, TanStack Query, Axios, Jest
+- `vite.config.ts` — dev-сервер, proxy
+- `tailwind.config.ts` — палитра цветов (primary, expense, income)
+- `tsconfig.json` — strict TypeScript
 - `.eslintrc.cjs` + `.prettierrc` — линтинг и форматирование
-- `postcss.config.js` — интеграция Tailwind с Vite
-- `jest.config.cjs` — настройка Jest с ts-jest
+- `jest.config.cjs` — Jest с ts-jest, moduleNameMapper для `@tanstack/react-query` и analytics-моков
+- `.env.example` — шаблон переменных окружения
+- `vercel.json` — SPA rewrites, CSP и security headers
 
-### 2. Типы и утилиты
-- `types.ts` — полная типизация: Transaction, TransactionType, CategoriesStore, CategoryInfo, FilterState
-- `helpers.ts` — форматирование сумм/дат, группировка, фильтрация, расчёт баланса, функции для работы с динамическими категориями (loadCategories, saveCategories, slugify)
+### 2. Типы данных
 
-### 3. API-слой
-- `api.ts` — имитация REST API с задержкой
-- Данные хранятся в localStorage (транзакции и категории)
-- При первом запуске — инициализация mock-данными и дефолтными категориями
-- CRUD для категорий: addCategory, updateCategory, deleteCategory
-- Вспомогательные функции: reassignTransactionsCategory, deleteTransactionsByCategory, countTransactionsInCategory
+`src/utils/types.ts` — полная типизация в соответствии с backend API:
 
-### 4. Компоненты
-- `Header.tsx` — навигация с активными ссылками через NavLink (4 пункта: Главная, Добавить, Статистика, Категории)
-- `CategorySelect.tsx` — выбор категории, принимает список через пропсы
-- `TransactionList.tsx` — список с цветными индикаторами, кнопки удаления, принимает CategoriesStore
-- `AddTransactionForm.tsx` — форма с валидацией, переключатель расход/доход, загрузка категорий из API
-- `Statistics.tsx` — SVG круговые диаграммы, принимает CategoriesStore
-- `CategoryCard.tsx` — карточка категории с кнопками «Редактировать» и «Удалить» (скрыта для дефолтных)
-- `CategoryForm.tsx` — модальная форма добавления/редактирования категории с палитрой цветов
-- `ConfirmDialog.tsx` — переиспользуемый диалог подтверждения
+- `Transaction` — с joined `categories` (name, type, color от backend JOIN)
+- `Category` — поля из Supabase (`id`, `user_id`, `is_default`, `created_at`, `updated_at`)
+- `AuthUser`, `AuthSession`, `AuthResponse` — типы для аутентификации
+- `TransactionFormData`, `FilterState` — UI-типы
 
-### 5. Страницы
-- `Dashboard.tsx` — главная с балансом, фильтрами, списком, FAB-кнопкой для мобильных
-- `AddTransaction.tsx` — обёртка формы с редиректом после сохранения
-- `StatisticsPage.tsx` — обёртка статистики с loading/error состояниями
-- `CategoriesPage.tsx` — страница управления категориями с группировкой по типу, модальные окна для добавления/редактирования/удаления
+### 3. API-слой (Axios + backend)
 
-### 6. Роутинг
-- `routes.tsx` — четыре маршрута: `/`, `/add`, `/stats`, `/categories`
-- `App.tsx` — BrowserRouter + Header + основной layout
+Архитектура состоит из трёх модулей:
 
-### 7. Управление категориями (фича)
+**`src/api/client.ts`** — Axios instance:
+- `baseURL` из `VITE_API_URL` (fallback `http://localhost:8080/api` в dev)
+- Request interceptor: добавляет `Authorization: Bearer <token>`, проверяет expiry перед запросом
+- Response interceptor: при 401 очищает сессию и диспатчит `auth:unauthorized` event (не срабатывает для `/auth/login`, `/auth/register`, `/auth/recover`)
+- Session хранится в `localStorage`: `budget_track_token` (JWT), `budget_track_session` (user)
 
-**Добавление категории:**
-- Пользователь указывает название, тип (расход/доход), цвет из палитры 12 цветов
-- Валидация: пустое название, дубликат, длина > 30 символов, допустимые символы
-- Автоматическая генерация уникального slug (value) из названия
+**`src/api/api.ts`** — API-функции (чистые HTTP-вызовы):
+- Auth: `login`, `register`, `logout`, `recoverPassword`, `fetchCurrentUser`, `getGoogleLoginUrl`
+- Transactions: `fetchTransactions` (с фильтрами), `createTransaction`, `updateTransaction`, `deleteTransaction`
+- Categories: `fetchCategories` (опционально `?type=`), `addCategory`, `updateCategory`, `deleteCategory`
 
-**Удаление категории:**
-- Дефолтные категории нельзя удалить — кнопка скрыта
-- При наличии транзакций в категории — выбор: перенести в другую категорию или удалить вместе
-- Минимум 1 категория каждого типа должна остаться
+**`src/api/hooks.ts`** — React Query обёртки:
+- `useTransactions(filters)`, `useCategories(type)` — запросы с кэшированием
+- `useCreateTransaction`, `useUpdateTransaction`, `useDeleteTransaction` — мутации с `invalidateQueries`
+- `useAddCategory`, `useUpdateCategory`, `useDeleteCategory` — мутации для категорий
+- Все мутации отправляют GA4 events через `GAEvents.*`
 
-**Редактирование категории:**
-- Можно изменить название и цвет любой категории (включая дефолтные)
-- Value (идентификатор) не меняется
+### 4. Аутентификация
 
-**Хранение:**
-- Категории в localStorage (`budget_track_categories`)
-- Структура: `{ expense: CategoryInfo[], income: CategoryInfo[] }` с полем `isDefault`
+**`src/auth/AuthContext.tsx`** — глобальный auth state через React Context:
+- При инициализации: проверка `session.expired_at` → если истёк, очистка и logout
+- При монтировании: `fetchCurrentUser()` для валидации токена на сервере
+- Слушатель `auth:unauthorized` → очистка сессии, редирект на `/login`
+- Методы: `login`, `register`, `logout`, `loginWithGoogle`, `handleOAuthCallback`, `refreshUser`
+- GA4 events: `login` (method: email/google), `sign_up`, `logout`
+
+**Google OAuth flow:**
+1. `AuthButton` → `loginWithGoogle()` → `window.location.href = /api/auth/google` (backend)
+2. Backend → Supabase → Google consent → Supabase callback
+3. Supabase → frontend `/auth/callback#access_token=...&expires_in=...`
+4. `AuthCallback.tsx` парсит hash, вызывает `handleOAuthCallback(token, expiresIn)`
+5. Token сохраняется, `fetchCurrentUser()` загружает профиль, `navigate('/', { replace: true })` очищает hash
+
+**ProtectedRoute** (`src/routes.tsx`):
+- `loading=true` → спиннер «Проверка авторизации...»
+- `!isAuthenticated` → `<Navigate to="/login" replace />`
+- Защищены: `/`, `/add`, `/stats`, `/categories`, `/profile`
+
+### 5. Компоненты
+
+| Компонент | Назначение |
+|---|---|
+| `Header.tsx` | Навигация (NavLink), отображение пользователя, logout |
+| `AddTransactionForm.tsx` | Форма с валидацией, переключатель расход/доход, загрузка категорий через `useCategories` |
+| `TransactionList.tsx` | Список транзакций с цветными индикаторами, кнопки edit/delete |
+| `EditTransactionModal.tsx` | Модальное окно редактирования транзакции |
+| `Statistics.tsx` | SVG круговые диаграммы доходов/расходов |
+| `CategoryCard.tsx` | Карточка категории с edit/delete |
+| `CategoryForm.tsx` | Модальная форма добавления/редактирования категории, палитра из 12 цветов |
+| `CategorySelect.tsx` | Выпадающий список категорий |
+| `AuthButton.tsx` | Кнопка «Sign in with Google» |
+| `ConfirmDialog.tsx` | Переиспользуемый диалог подтверждения (нативный `<dialog>`) |
+
+### 6. Страницы
+
+| Страница | Функциональность |
+|---|---|
+| `Dashboard.tsx` | Баланс, доходы, расходы; фильтры (тип, категория, дата); пагинация по 20; список транзакций; FAB для мобильных |
+| `AddTransaction.tsx` | Обёртка над `AddTransactionForm`, `createTransaction` → navigate `/` |
+| `StatisticsPage.tsx` | Обёртка над `Statistics` с loading/error |
+| `CategoriesPage.tsx` | CRUD категорий, группировка по типу (расходы/доходы), модальные окна |
+| `LoginPage.tsx` | Форма входа email/password + Google OAuth, обработка error banners |
+| `RegisterPage.tsx` | Форма регистрации |
+| `RecoverPasswordPage.tsx` | Восстановление пароля |
+| `AuthCallback.tsx` | Обработка OAuth callback из hash |
+| `ProfilePage.tsx` | Профиль пользователя |
+
+### 7. Утилиты (`src/utils/helpers.ts`)
+
+- `formatAmount`, `formatDate` — форматирование через `Intl` (ru-RU, RUB)
+- `calculateBalance`, `calculateTotalByType` — расчёт баланса
+- `groupByCategory` — группировка транзакций по категориям (использует joined `categories.name/color`)
+- `filterTransactions` — фильтрация по типу, категории, дате
+- `groupCategoriesByType`, `getCategoryById`, `getCategoryName`, `getCategoryColor`
+- `sanitizeApiError` — маппинг backend error codes на русские сообщения (`INVALID_CREDENTIALS`, `USER_EXISTS`, `CATEGORY_IN_USE`, и др.)
+- `colorPalette` — 12 цветов для категорий
+
+### 8. Google Analytics 4
+
+**`src/analytics/gtag.ts`:**
+- GA ID собирается из `G-` + `VITE_GA_ID` (без `G-` в env — обход Vercel redacting)
+- `gaPageView`, `gaEvent` — обёртки над `window.gtag`
+- `GAEvents` — типизированные методы: `login`, `register`, `logout`, `transactionCreated/Updated/Deleted`, `categoryCreated/Updated/Deleted`
+
+Inline-сниппет в `index.html` инициализирует dataLayer и async-загружает gtag.js.
+
+`App.tsx` содержит `AnalyticsListener`, который трекает `page_view` при смене маршрута.
+
+---
+
+## Маршруты
+
+| Путь | Страница | Auth |
+|---|---|---|
+| `/` | Dashboard — баланс, фильтры, список транзакций | Да |
+| `/add` | Добавление транзакции | Да |
+| `/stats` | Статистика (круговые диаграммы) | Да |
+| `/categories` | Управление категориями | Да |
+| `/profile` | Профиль | Да |
+| `/login` | Вход (email + Google) | Нет |
+| `/register` | Регистрация | Нет |
+| `/recover` | Восстановление пароля | Нет |
+| `/auth/callback` | OAuth callback | Нет |
+
+---
+
+## Архитектура
+
+### Управление состоянием
+
+**Server state** — TanStack Query (React Query):
+- `QueryClient` в `App.tsx` с `staleTime: 30s`, `retry: 1`, `refetchOnWindowFocus: false`
+- Хуки в `src/api/hooks.ts` инкапсулируют запросы и мутации
+- Мутации автоматически инвалидируют кэш (`invalidateQueries`) — UI обновляется без ручного refetch
+- Категории и транзакции кэшируются отдельно — нет дублирования загрузок
+
+**Auth state** — React Context (`AuthContext`):
+- Глобальный провайдер оборачивает всё приложение
+- Сессия в `localStorage` с проверкой expiry
+- Auto-logout при 401 от любого API-запроса
+
+**Local UI state** — `useState` в компонентах (фильтры, модальные окна, формы)
+
+### Поток данных
+
+```
+User action → Component → useMutation/useQuery hook
+  → api.ts (HTTP via Axios client.ts)
+  → Backend API (Express + Supabase)
+  → Response → React Query cache → Component re-render
+  → GA4 event (в onSuccess мутации)
+```
+
+### Безопасность
+
+- **CSP** в `vercel.json` — `script-src 'self' 'unsafe-inline' googletagmanager.com google-analytics.com`
+- **Security headers** — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`
+- **JWT** — в `localStorage`, проверка expiry перед каждым запросом, auto-logout на 401
+- **OAuth token** — парсится из hash, немедленно сохраняется, hash очищается через `navigate('/', { replace: true })`
+- **HTTPS** — принудительно Vercel
+
+---
+
+## Тесты
+
+4 набора, 10 тестов (все проходят):
+
+| Файл | Тестов | Что проверяет |
+|---|---|---|
+| `AddTransactionForm.test.tsx` | 3 | Отправка формы расхода, валидация пустой суммы, переключение на доход. Mock `fetchCategories` через `jest.mock('../api/api')`, обёрнут в `QueryClientProvider` |
+| `TransactionList.test.tsx` | 4 | Отображение транзакций, цветных индикаторов категорий, пустое состояние, кнопки удаления |
+| `ApiError.test.tsx` | 1 | Обработка ошибки при загрузке данных |
+| `CategoryManagement.test.tsx` | 2 | Отображение категорий на странице, наличие кнопок удаления. Mock API с реальной структурой `Category` (id, user_id, is_default, created_at) |
+
+Тесты используют React Testing Library + `userEvent`. Все mock'и возвращают данные в формате backend API (с `id`, `user_id`, `is_default`, `created_at` — не localStorage-структуры).
+
+---
+
+## CI/CD
+
+GitHub Actions pipeline: lint → typecheck → test → build → deploy (Vercel).
+
+Подробности: [docs/integration_documentation.md](docs/integration_documentation.md)
+
+---
+
+## Адаптивность
+
+- Tailwind responsive: `sm:` breakpoints
+- Grid: `grid-cols-1 sm:grid-cols-2` (категории), `grid-cols-1 sm:grid-cols-3` (баланс), `grid-cols-2 sm:grid-cols-4` (фильтры)
+- FAB-кнопка добавления видна только на мобильных (`sm:hidden`)
+- Скрытие/отображение текста: `hidden sm:inline`, `sm:hidden`
+
+---
 
 ## Проблемы и решения
 
 | Проблема | Решение |
-|----------|---------|
-| ESLint не мог прочитать `.eslintrc.js` из-за `"type": "module"` в package.json | Переименован в `.eslintrc.cjs` |
-| Prettier требовал точки с запятой во всех файлах | Запущен `npm run format` для автоисправления |
-| Дублирующийся ключ `other` в селекте категорий (expense + income) | Добавлены префиксы `expense-`/`income-`, затем полностью переделано на динамические категории |
-| Тест TransactionList падал — "Зарплата" встречалась и как описание, и как категория | Изменено описание на "Месячная зарплата" |
-| Синтаксическая ошибка в Dashboard.tsx (лишняя `}`) | Исправлен onChange handler |
-| `@testing-library/jest-dom` матчеры не распознавались TypeScript | Добавлен `import '@testing-library/jest-dom'` в каждый тест |
-| Опечатка `setupFilesAfterSetup` в jest.config | Удалён некорректный ключ |
-| `jest.mock()` не может ссылаться на переменные до инициализации | Мок данных перенесён внутрь `jest.mock()` как литерал |
-| AddTransactionForm тесты падали — форма загружает категории асинхронно | Добавлен `waitFor` для ожидания загрузки, мок `fetchCategories` |
-| Тип `Record<string, { amount: number; TransactionType: any }>` — опечатка | Исправлено на `Record<string, { amount: number; type: TransactionType }>` |
-| `CategoryInfo.value` был фиксированным union типом | Заменён на `string` для поддержки пользовательских категорий |
-| `getCategoryLabel`/`getCategoryColor` использовали хардкод | Добавлен параметр `categories: CategoriesStore` |
-| Не работало удаление категорий: `confirmDelete` вызывал `closeDelete()` после try/catch, поэтому при ошибке диалог закрывался, а `loadCategories()` сбрасывал ошибку через `setError(null)` до её отображения. Также ошибка заменяла всю страницу вместо показа в виде баннера | `closeDelete()` перенесён внутрь try/catch; `setError(null)` в `loadCategories` вызывается только после успешной загрузки; ошибка показывается как закрываемый баннер над контентом страницы |
-| В форме «Новая категория» показывался выбор типа (расход/доход), хотя тип уже известен из контекста (кнопка «Добавить» нажата в секции расходов или доходов). Переключатель типа в форме не влиял на результат — `selectedType` не передавался родителю | Удалён переключатель типа из `CategoryForm`; проп `type` убран из интерфейса компонента; тип определяется кнопкой, из которой открыта форма |
-| Дефолтные категории нельзя было удалить — кнопка «Удалить» была скрыта, API выбрасывал ошибку «Нельзя удалить предустановленную категорию» | Удалена проверка `isDefault` из `deleteCategory` в API; убран early return в `handleDeleteClick`; кнопка «Удалить» показывается для всех категорий; проп `isDefault` убран из `CategoryCard`; тесты обновлены под новое поведение |
+|---|---|
+| ESLint не читал `.eslintrc.js` из-за `"type": "module"` | Переименован в `.eslintrc.cjs` |
+| `@testing-library/jest-dom` матчеры не распознавались TypeScript | `import '@testing-library/jest-dom'` в каждом тесте |
+| Vercel маскировал `G-XXXXXXXXXX` как API key | `VITE_GA_ID` хранится без `G-` префикса, добавляется в коде |
+| gtag не инициализировался (race condition при динамической загрузке) | Перенесён в inline-сниппет в `index.html` по рекомендованному Google паттерну |
+| OAuth callback не обновлял auth state | `handleOAuthCallback()` в `AuthContext` вместо прямой работы с localStorage |
+| Backend endpoint `GET /api/user` отсутствовал | Добавлен на бэкенде, фронтенд использует `fetchCurrentUser()` |
+| Сессия не очищалась при истёкшем токене | Проверка `expires_at` в request interceptor + auto-clear на 401 |
+| Тесты падали из-за `import.meta` в gtag.ts | Создан `src/__mocks__/gtag.ts`, добавлен `moduleNameMapper` в jest.config |
 
-## Тесты
-
-Создано 4 набора тестов (11 тестов):
-
-1. **AddTransactionForm** (3 теста) — отправка формы расхода, валидация пустой суммы, переключение на доход
-2. **TransactionList** (4 теста) — отображение транзакций, категорий, пустое состояние, кнопки удаления
-3. **ApiError** (1 тест) — обработка ошибки при загрузке данных в Dashboard
-4. **CategoryManagement** (3 теста) — отображение категорий на странице, отсутствие кнопки удаления для дефолтных, ошибка при попытке удалить дефолтную категорию через API
-
-## Адаптивность
-
-- Tailwind responsive классы (`sm:`, `grid-cols-1 sm:grid-cols-3`)
-- Скрытие/отображение элементов для мобильных (`hidden sm:inline`, `sm:hidden`)
-- FAB-кнопка добавления видна только на мобильных
-- Гибкие сетки для фильтров и карточек
-- Карточки категорий: 1 колонка на мобильных, 2 на десктопе (`grid-cols-1 sm:grid-cols-2`)
+---
 
 ## Выводы
 
-### Архитектура
+### Достигнуто
 
-Проект реализован как прототип с localStorage в качестве хранилища. Это позволило быстро получить рабочий продукт без бэкенда, но создаёт фундаментальные ограничения: данные не покидают устройство пользователя, нет синхронизации между вкладками, а замена хранилища на реальный API потребует переписывания всего модуля `api.ts` и всех его потребителей.
+- **Full-stack интеграция** — фронтенд работает с реальным backend API, не mock-данные
+- **Server state management** — TanStack Query устраняет дублирование загрузок, автоматическое кэширование и инвалидация
+- **Аутентификация** — email/password + Google OAuth через Supabase, защищённые маршруты, auto-logout
+- **Аналитика** — GA4 с типизированными событиями для всех ключевых действий
+- **Безопасность** — CSP, security headers, token expiry checks, hash cleanup
+- **CI/CD** — автоматический deploy на Vercel при push
+- **Адаптивность** — работает на мобильных и десктопе
+- **Тесты** — 10 тестов покрывают ключевые компоненты и сценарии
 
-Управление состоянием полностью локальное — каждая страница независимо загружает свои данные через `useState`. Это приводит к дублированию: категории загружаются отдельно в `Dashboard`, `StatisticsPage`, `CategoriesPage` и даже внутри `AddTransactionForm`. Между страницами нет общего контекста: после создания транзакции на `/add` главная страница не узнаёт об этом, пока пользователь не перейдёт на неё и не вызовется `useEffect`.
+### Что можно улучшить
 
-`CategoriesPage` превратился в «божественный» компонент (11 хуков `useState`, 4 шага удаления, 3 встроенных модальных окна). Дальнейшее добавление функционала в него будет усложнять код экспоненциально.
-
-### Обработка ошибок
-
-Ошибки обрабатываются непоследовательно: часть `catch`-блоков полностью глотает ошибки без логирования (`Dashboard`, `StatisticsPage`, `helpers`), часть показывает красный баннер, часть — инлайн-ошибку в форме. Нет единого механизма уведомлений. `AddTransaction.tsx` вообще не обрабатывает ошибки `createTransaction` — возможен unhandled promise rejection.
-
-API-слой маскирует проблемы: при ошибке парсинга localStorage молча подставляются дефолтные данные, и вызывающий код не может отличить «данные успешно загружены» от «данные повреждены и заменены».
-
-### Безопасность данных
-
-Два ключа localStorage без версионирования и миграций. При изменении схемы `Transaction` или `CategoryInfo` старые данные будут парситься без ошибок, но окажутся некорректными — `JSON.parse(...) as Transaction[]` не даёт runtime-валидации. Также возможна race condition: две быстрые мутации (например, удаление двух транзакций подряд) могут перезаписать друг друга, поскольку каждая читает полный список независимо.
-
-### Типобезопасность
-
-Явных `any` нет, TypeScript strict включён. Однако `as`-приведения после `JSON.parse` (`api.ts:100`, `helpers.ts:54`) обходят защиту типов — повреждённые данные проходят без замечаний. `TransactionFormData.amount` типизирован как `string`, но в API конвертируется через `Number()` — тип должен быть `number`, либо конверсия должна валидироваться.
-
-### Тестирование
-
-11 тестов покрывают только базовые сценарии рендеринга и одну ошибку API. Не протестированы: полный CRUD категорий (добавление → отображение → редактирование → удаление), утилиты `helpers.ts` (`calculateBalance`, `filterTransactions`, `slugify`), страница `AddTransaction`, компоненты `ConfirmDialog`, `CategoryCard`, `CategorySelect`. Нет интеграционных тестов — ни один тест не проверяет путь от отправки формы до записи в localStorage и отображения результата.
-
-### Доступность
-
-Модальные окна `CategoryForm` и диалоги удаления в `CategoriesPage` реализованы как `<div>` с `fixed inset-0` — нет ловушки фокуса, Tab уходит на фон. Только `ConfirmDialog` использует нативный `<dialog>`. SVG-диаграммы в `Statistics` не имеют `role="img"` и `aria-label`. Кнопки удаления в `TransactionList` не идентифицируют, какую именно транзакцию удаляют. Нет ссылки для пропуска навигации (skip-nav).
-
-## Рекомендации
-
-### Приоритет 1 — необходимо до подключения реальных пользователей
-
-1. **Ввести глобальное управление состоянием** (React Context + useReducer или Zustand) для категорий и транзакций. Это устранит дублирование загрузок, обеспечит консистентность данных между страницами и даст точку для инвалидации кэша после мутаций.
-2. **Добавить версионирование localStorage** — хранить версию схемы рядом с данными и при несовпадении запускать миграцию или сбрасывать данные с уведомлением пользователя.
-3. **Унифицировать обработку ошибок** — создать единый компонент уведомлений (toast/banner) и использовать его во всех точках. Убрать silent `catch {}`, добавить минимальное логирование.
-4. **Покрыть тестами утилиты** — `calculateBalance`, `filterTransactions`, `groupByCategory`, `slugify` — это чистые функции, их тестирование тривиально и даёт быстрый прирост надёжности.
-
-### Приоритет 2 — важно для поддерживаемости
-
-5. **Разделить `CategoriesPage`** — вынести диалоги удаления (choose-mode, reassign, confirm-delete-all) в отдельные компоненты. Состояние удаления перевести на `useReducer` вместо 6 отдельных `useState`.
-6. **Абстрагировать API-слой** — определить интерфейс репозитория (`ITransactionRepository`, `ICategoryRepository`), а текущую localStorage-реализацию сделать одной из имплементаций. Это упростит замену на реальный бэкенд.
-7. **Заменить `as`-приведения на runtime-валидацию** — использовать Zod или ручные guards после `JSON.parse`. Это защитит от повреждённых данных в localStorage.
-8. **Исправить тип `TransactionFormData.amount`** — сделать `number` вместо `string`, валидировать конверсию на границе формы.
-
-### Приоритет 3 — улучшение качества
-
-9. **Добавить мемоизацию** — `useMemo` для фильтрации/расчётов в `Dashboard` и `Statistics`, `React.memo` для `TransactionList` и `Statistics`. Кэшировать `Intl.NumberFormat` / `Intl.DateTimeFormat` на уровне модуля.
-10. **Заменить `<div>`-модалки на `<dialog>`** — нативный элемент даёт ловушку фокуса, закрытие по Escape и семантику из коробки.
-11. **Добавить a11y**: `aria-label` для SVG-диаграмм, идентификацию в кнопках удаления (`Удалить «Продукты»`), skip-nav ссылку, привязку `<label htmlFor>`.
-12. **Добавить маршрут 404** — catch-all `*` маршрут с понятной страницей.
-13. **Вынести строки в i18n-словарь** — если планируется мультиязычность, делать это лучше сразу, чем возвращаться к каждому компоненту.
+1. **Тестовое покрытие** — добавить тесты для AuthContext, helpers, OAuth callback, мутаций
+2. **A11y** — `aria-label` для SVG-диаграмм, skip-nav, ловушки фокуса в модальных окнах
+3. **Refresh token** — реализовать silent refresh вместо принудительного re-login
+4. **Toast-уведомления** — единый механизм feedback вместо inline error баннеров
+5. **Code splitting** — lazy loading страниц для уменьшения initial bundle
+6. **404 маршрут** — catch-all `*` с понятной страницей

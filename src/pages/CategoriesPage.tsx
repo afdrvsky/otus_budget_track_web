@@ -4,7 +4,7 @@ import { useCategories, useAddCategory, useUpdateCategory, useDeleteCategory } f
 import { sanitizeApiError } from '../utils/helpers';
 import CategoryCard from '../components/CategoryCard';
 import CategoryForm from '../components/CategoryForm';
-import ConfirmDialog from '../components/ConfirmDialog';
+import DeleteCategoryDialog from '../components/DeleteCategoryDialog';
 
 export default function CategoriesPage() {
   const { data: categories = [], isLoading, error: loadError } = useCategories();
@@ -17,7 +17,6 @@ export default function CategoriesPage() {
   const [formType, setFormType] = useState<TransactionType>('expense');
 
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const expenseCategories = categories.filter(c => c.type === 'expense');
@@ -54,19 +53,15 @@ export default function CategoriesPage() {
 
   function handleDeleteClick(category: Category) {
     setDeleteTarget(category);
-    setConfirmDeleteOpen(true);
   }
 
-  async function confirmDelete() {
-    if (!deleteTarget) return;
+  async function handleConfirmDelete(category: Category, reassignTo?: string) {
     setError(null);
     try {
-      await deleteMut.mutateAsync(deleteTarget.id);
-      setConfirmDeleteOpen(false);
+      await deleteMut.mutateAsync({ id: category.id, reassignTo });
       setDeleteTarget(null);
     } catch (err: unknown) {
       setError(sanitizeApiError(err));
-      setConfirmDeleteOpen(false);
       setDeleteTarget(null);
     }
   }
@@ -154,19 +149,12 @@ export default function CategoriesPage() {
         />
       )}
 
-      {deleteTarget && confirmDeleteOpen && (
-        <ConfirmDialog
-          open={true}
-          title="Удалить категорию"
-          message={`Удалить категорию «${deleteTarget.name}»? Если к ней привязаны транзакции, удаление будет невозможно.`}
-          confirmLabel="Удалить"
-          cancelLabel="Отмена"
-          variant="danger"
-          onConfirm={confirmDelete}
-          onCancel={() => {
-            setConfirmDeleteOpen(false);
-            setDeleteTarget(null);
-          }}
+      {deleteTarget && (
+        <DeleteCategoryDialog
+          category={deleteTarget}
+          allCategories={categories}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

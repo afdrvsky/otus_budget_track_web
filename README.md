@@ -1,71 +1,107 @@
 # Budget Track Web
 
-Веб-приложение для учёта личного бюджета. Добавляйте доходы и расходы, категоризируйте их и просматривайте статистику.
+Веб-приложение для учёта личных финансов: доходы, расходы, категории, аналитика.
 
-## Технологический стек
+**Production:** https://otus-budget-track-web.vercel.app
+
+**Backend:** https://github.com/afdrvsky/otus_budget_track_backend
+
+---
+
+## Технологии
 
 - **React 18** + TypeScript
 - **Vite** — сборка и dev-сервер
-- **Tailwind CSS** — стилизация
+- **Tailwind CSS** — стили
 - **React Router v6** — маршрутизация
-- **TanStack Query (React Query)** — server state
-- **Axios** — HTTP клиент
-- **Google Analytics 4** — продуктовая аналитика
-- **Jest** + React Testing Library — тестирование
-- **ESLint** + Prettier — линтинг и форматирование
+- **TanStack Query** — server state
+- **Axios** — HTTP-клиент
+- **Google Analytics 4** — аналитика
+- **Jest** + React Testing Library — тесты
 
-## Установка
+---
+
+## Быстрый старт (вместе с бэкендом)
+
+Фронтенд требует запущенный backend API. Ниже — инструкция, как поднять оба проекта локально и проверить работу.
+
+### 1. Клонировать оба репозитория
 
 ```bash
-npm install
+git clone https://github.com/afdrvsky/otus_budget_track_backend.git
+git clone https://github.com/afdrvsky/otus_budget_track_web.git
 ```
 
-## Настройка
+### 2. Поднять бэкенд
 
 ```bash
+cd otus_budget_track_backend
+npm install
 cp .env.example .env
 ```
 
-| Переменная | Описание |
-|---|---|
-| `VITE_API_URL` | URL backend API (например `http://localhost:8080/api`) |
-| `VITE_GA_ID` | Google Analytics 4 ID **без** `G-` префикса (например `8DNW2WC11K`) |
-
-> **Важно:** `VITE_GA_ID` указывается без `G-` префикса. Префикс добавляется в коде.
-> Это обход redacting в Vercel — он маскирует полные `G-XXXXXXXXXX` паттерны как ключи API.
-
-## Запуск
+Заполнить `.env` (см. [README бэкенда](https://github.com/afdrvsky/otus_budget_track_backend#настройка) — нужны Supabase project, Google OAuth credentials).
 
 ```bash
-npm run dev      # Dev-сервер
+npm run dev    # стартует на http://localhost:8080
+```
+
+### 3. Поднять фронтенд
+
+```bash
+cd ../otus_budget_track_web
+npm install
+cp .env.example .env
+```
+
+В `.env` проверить `VITE_API_URL=http://localhost:8080/api`.
+
+```bash
+npm run dev    # стартует на http://localhost:5173
+```
+
+### 4. Проверить
+
+Открыть http://localhost:5173:
+1. **Регистрация** — создаёт аккаунт, сразу даёт 13 дефолтных категорий
+2. **Вход** — email/password или Google OAuth
+3. **Добавить транзакцию** — `/add`
+4. **Список операций** — `/` (Dashboard)
+5. **Статистика** — `/stats` (круговые диаграммы)
+6. **Категории** — `/categories` (создание, редактирование, удаление)
+
+---
+
+## Переменные окружения
+
+| Переменная | Описание | По умолчанию |
+|---|---|---|
+| `VITE_API_URL` | URL backend API | `http://localhost:8080/api` |
+| `VITE_GA_ID` | Google Analytics 4 ID **без** `G-` префикса (например `8DNW2WC11K`) | — |
+
+> **Почему без `G-`?** Vercel автоматически маскирует полные `G-XXXXXXXXXX` паттерны как API-ключи. Префикс добавляется в коде (`src/analytics/gtag.ts`).
+
+---
+
+## Команды
+
+```bash
+npm run dev      # Dev-сервер (http://localhost:5173)
 npm run build    # Production-сборка
 npm run preview  # Предпросмотр production-сборки
+npm test         # Тесты
+npm run lint     # ESLint
 ```
 
-## Тестирование
-
-```bash
-npm test              # Запуск всех тестов
-npm test -- --watch   # Watch mode
-npm test -- --coverage # С покрытием
-```
-
-## Линтинг и форматирование
-
-```bash
-npm run lint          # ESLint
-npm run lint:fix      # ESLint с автоисправлением
-npx prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,md}"  # Проверка
-npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"  # Форматирование
-```
+---
 
 ## Маршруты
 
 | Путь | Страница | Auth |
 |---|---|---|
-| `/` | Dashboard (баланс, список транзакций) | Да |
+| `/` | Dashboard — баланс, список транзакций | Да |
 | `/add` | Добавление транзакции | Да |
-| `/stats` | Статистика | Да |
+| `/stats` | Статистика (диаграммы доходов/расходов) | Да |
 | `/categories` | Управление категориями | Да |
 | `/profile` | Профиль | Да |
 | `/login` | Вход (email + Google) | Нет |
@@ -73,77 +109,48 @@ npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"  # Форматир�
 | `/recover` | Восстановление пароля | Нет |
 | `/auth/callback` | OAuth callback (Google) | Нет |
 
+---
+
 ## Структура проекта
 
 ```
-/src
-  /api
-    api.ts              # API-функции (auth, transactions, categories)
-    client.ts           # Axios instance, interceptors, localStorage
-    hooks.ts            # React Query хуки (useTransactions, useCategories, etc.)
-  /analytics
-    gtag.ts             # Google Analytics 4 утилита
-  /auth
-    AuthContext.tsx     # Auth state (login, register, OAuth, logout)
-  /components
-    Header.tsx          # Навигация
-    TransactionList.tsx # Список транзакций
-    AddTransactionForm.tsx
-    EditTransactionModal.tsx
-    CategoryCard.tsx
-    CategoryForm.tsx
-    CategorySelect.tsx
-    Statistics.tsx      # Круговые диаграммы
-    AuthButton.tsx      # Google OAuth кнопка
-    ConfirmDialog.tsx
-  /pages
-    Dashboard.tsx       # Главная страница
-    AddTransaction.tsx
-    StatisticsPage.tsx
-    CategoriesPage.tsx
-    ProfilePage.tsx
-    LoginPage.tsx
-    RegisterPage.tsx
-    RecoverPasswordPage.tsx
-    AuthCallback.tsx    # OAuth callback handler
-  /utils
-    types.ts            # TypeScript типы
-    helpers.ts          # Утилиты
-  App.tsx               # Корневой компонент (BrowserRouter, GA4)
-  main.tsx              # Точка входа
-  routes.tsx            # Конфигурация роутов + ProtectedRoute
+src/
+  api/            — Axios client, API-функции, React Query хуки
+  analytics/      — Google Analytics 4 (gtag)
+  auth/           — AuthContext (login, register, OAuth, logout)
+  components/     — UI-компоненты (Header, TransactionList, Statistics, и др.)
+  pages/          — Страницы (Dashboard, Login, Register, и др.)
+  utils/          — TypeScript типы, хелперы
+  App.tsx         — Корневой компонент (Router, GA4, QueryClient)
+  main.tsx        — Точка входа
+  routes.tsx      — Конфигурация роутов + ProtectedRoute
 ```
+
+---
 
 ## Аутентификация
 
-### Email/Password
-- Регистрация через `POST /api/auth/register`
-- Вход через `POST /api/auth/login`
-- JWT хранится в `localStorage` (`budget_track_token`)
-- Пользователь в `localStorage` (`budget_track_session`)
+### Email / Password
+- Регистрация → `POST /api/auth/register`
+- Вход → `POST /api/auth/login`
+- JWT хранится в `localStorage`
 
 ### Google OAuth
-1. Frontend → `GET /api/auth/google` (backend)
-2. Backend → Supabase OAuth URL redirect
+1. Клик «Sign in with Google» → `GET /api/auth/google` (backend)
+2. Backend редиректит на Supabase OAuth URL
 3. Supabase → Google consent screen
 4. Google → Supabase callback
-5. Supabase → Frontend `/auth/callback#access_token=...`
-6. Frontend парсит token из hash, сохраняет, перенаправляет на `/`
+5. Supabase → `/auth/callback#access_token=...` (frontend)
+6. Frontend парсит token, сохраняет, редиректит на `/`
 
-## Аналитика (Google Analytics 4)
-
-Отслеживаемые события:
-- `page_view` — при смене маршрута
-- `login` — вход (method: email/google)
-- `sign_up` — регистрация
-- `logout` — выход
-- `transaction_created/updated/deleted`
-- `category_created/updated/deleted`
-
-Подробности: [docs/security_audit.md](docs/security_audit.md)
+---
 
 ## CI/CD
 
-GitHub Actions pipeline: lint → typecheck → test → build. Deploy через Vercel.
+GitHub Actions: lint → typecheck → test → build → deploy (Vercel).
 
 Подробности: [docs/integration_documentation.md](docs/integration_documentation.md)
+
+## Безопасность
+
+Подробности: [docs/security_audit.md](docs/security_audit.md)

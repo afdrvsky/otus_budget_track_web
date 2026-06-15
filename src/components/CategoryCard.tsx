@@ -31,12 +31,14 @@ export default function CategoryCard({ category, onEdit, onDelete }: CategoryCar
         >
           Редактировать
         </button>
-        <button
-          onClick={() => onDelete(category)}
-          className="px-3 py-1.5 text-xs font-medium text-expense-600 hover:text-expense-700 bg-expense-50 hover:bg-expense-100 rounded-lg transition-colors"
-        >
-          Удалить
-        </button>
+        {!category.is_default && (
+          <button
+            onClick={() => onDelete(category)}
+            className="px-3 py-1.5 text-xs font-medium text-expense-600 hover:text-expense-700 bg-expense-50 hover:bg-expense-100 rounded-lg transition-colors"
+          >
+            Удалить
+          </button>
+        )}
       </div>
     </div>
   );

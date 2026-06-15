@@ -6,6 +6,7 @@ const KNOWN_API_ERRORS: Record<string, string> = {
   INVALID_EMAIL: 'Указан некорректный email',
   WEAK_PASSWORD: 'Пароль слишком простой',
   CATEGORY_IN_USE: 'Невозможно удалить категорию — она используется в транзакциях',
+  DEFAULT_CATEGORY: 'Нельзя удалить предустановленную категорию',
   NOT_FOUND: 'Ресурс не найден',
   RATE_LIMITED: 'Слишком много запросов. Попробуйте позже',
   SESSION_EXPIRED: 'Сессия истекла. Войдите заново',
